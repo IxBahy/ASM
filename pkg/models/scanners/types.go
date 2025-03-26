@@ -6,6 +6,7 @@ type ScannerConfig struct {
 	InstallLink    string
 	ExecutablePath string
 	Base_Command   string
+	LocalPath      string
 }
 
 type Result struct {
