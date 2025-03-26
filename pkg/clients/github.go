@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/IxBahy/ASM/pkg/clients/utils"
+	"github.com/IxBahy/ASM/pkg/clients/client_utils"
 )
 
 type GithubClient struct {
@@ -48,12 +48,12 @@ func (c *GithubClient) InstallTool(url, version, destPath string) error {
 		return fmt.Errorf("failed to download %s: %w", toolName, err)
 	}
 
-	if utils.IsArchive(url) {
-		if err := utils.ExtractExecutable(tempFile.Name(), destPath, toolName); err != nil {
+	if client_utils.IsArchive(url) {
+		if err := client_utils.ExtractExecutable(tempFile.Name(), destPath, toolName); err != nil {
 			return fmt.Errorf("failed to extract executable: %w", err)
 		}
 	} else {
-		if err := utils.CopyFile(tempFile.Name(), destPath); err != nil {
+		if err := client_utils.CopyFile(tempFile.Name(), destPath); err != nil {
 			return fmt.Errorf("failed to copy executable: %w", err)
 		}
 	}
