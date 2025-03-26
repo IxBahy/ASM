@@ -1,4 +1,4 @@
-package client_utils
+package utils
 
 import (
 	"archive/tar"
