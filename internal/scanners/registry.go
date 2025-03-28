@@ -2,6 +2,7 @@ package scanners
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -17,35 +18,36 @@ func NewScannerRegistry() *ScannerRegistry {
 }
 
 func (r *ScannerRegistry) Register(scanner Scanner) {
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	config := scanner.GetConfig()
+	if err := scanner.Setup(); err != nil {
+		log.Fatalf("Failed to setup %s scanner: %v", config.Name, err)
+	}
+
 	r.scanners[config.Name] = scanner
-	fmt.Printf("Scanner '%s' registered\n", config.Name)
+	fmt.Printf("Scanner '%s' registered in registry\n", config.Name)
+
 }
 
-// Get retrieves a scanner by name
-func (r *ScannerRegistry) Get(name string) (Scanner, error) {
+func (r *ScannerRegistry) Get(name string) (Scanner, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	scanner, ok := r.scanners[name]
-	if !ok {
-		return nil, fmt.Errorf("scanner '%s' not found", name)
-	}
-
-	return scanner, nil
+	scanner, exists := r.scanners[name]
+	return scanner, exists
 }
 
-func (r *ScannerRegistry) List() []string {
+func (r *ScannerRegistry) GetAll() map[string]Scanner {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var names []string
-	for name := range r.scanners {
-		names = append(names, name)
+	result := make(map[string]Scanner, len(r.scanners))
+	for k, v := range r.scanners {
+		result[k] = v
 	}
 
-	return names
+	return result
 }
