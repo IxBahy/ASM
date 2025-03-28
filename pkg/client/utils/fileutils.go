@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -17,14 +18,14 @@ func IsArchive(url string) bool {
 		strings.HasSuffix(url, ".tgz")
 }
 
-func ExtractExecutable(archivePath, targetPath, toolName string) error {
+func ExtractExecutable(archivePath, targetPath, toolName, archiveName string) error {
 	switch {
-	case strings.HasSuffix(archivePath, ".zip"):
+	case strings.HasSuffix(archiveName, ".zip"):
 		return ExtractFromZip(archivePath, targetPath, toolName)
-	case strings.HasSuffix(archivePath, ".tar.gz") || strings.HasSuffix(archivePath, ".tgz"):
+	case strings.HasSuffix(archiveName, ".tar.gz") || strings.HasSuffix(archiveName, ".tgz"):
 		return ExtractFromTarGz(archivePath, targetPath, toolName)
 	default:
-		return fmt.Errorf("unsupported archive format")
+		return fmt.Errorf("unsupported archive format for %s", archiveName)
 	}
 }
 
@@ -43,7 +44,7 @@ func ExtractFromZip(archivePath, targetPath, toolName string) error {
 			}
 			defer fileReader.Close()
 
-			targetFile, err := os.Create(targetPath)
+			targetFile, err := CreateFileWithElevatedPermissions(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to create target file: %w", err)
 			}
@@ -87,7 +88,7 @@ func ExtractFromTarGz(archivePath, targetPath, toolName string) error {
 
 		if header.Typeflag == tar.TypeReg &&
 			(strings.Contains(filepath.Base(header.Name), toolName) || header.Name == toolName) {
-			targetFile, err := os.Create(targetPath)
+			targetFile, err := CreateFileWithElevatedPermissions(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to create target file: %w", err)
 			}
@@ -112,7 +113,7 @@ func CopyFile(src, dst string) error {
 	}
 	defer sourceFile.Close()
 
-	destFile, err := os.Create(dst)
+	destFile, err := CreateFileWithElevatedPermissions(dst)
 	if err != nil {
 		return err
 	}
@@ -124,4 +125,34 @@ func CopyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+func CreateFileWithElevatedPermissions(path string) (*os.File, error) {
+	file, err := os.Create(path)
+	if err == nil {
+		return file, nil
+	}
+
+	if os.IsPermission(err) {
+		fmt.Printf("Permission denied. Attempting to create %s with sudo...\n", path)
+
+		dirCmd := exec.Command("sudo", "mkdir", "-p", filepath.Dir(path))
+		if err := dirCmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to create directory with sudo: %w", err)
+		}
+
+		touchCmd := exec.Command("sudo", "touch", path)
+		if err := touchCmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to create file with sudo: %w", err)
+		}
+
+		chownCmd := exec.Command("sudo", "chown", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()), path)
+		if err := chownCmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to change file ownership with sudo: %w", err)
+		}
+
+		return os.OpenFile(path, os.O_RDWR, 0644)
+	}
+
+	return nil, err
 }

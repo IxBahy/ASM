@@ -14,14 +14,20 @@ type Scanner interface {
 type ScannerConfig struct {
 	Name             string
 	Version          string
-	InstallLink      string
+	GithubOptions    GithubOptions
 	ExecutablePath   string
 	Base_Command     string
-	LocalPath        string
 	InstallationType client.InstallationType
 }
-
+type GithubOptions struct {
+	InstallLink    string
+	InstallPattern string
+}
 type ScannerResult struct {
 	Data   []string
 	Errors []string
+}
+type InstallationState struct {
+	Installed bool
+	Version   string
 }

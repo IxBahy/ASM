@@ -12,13 +12,8 @@ import (
 
 type NmapScanner struct {
 	config        scanners.ScannerConfig
-	installState  installationState
+	installState  scanners.InstallationState
 	installClient client.ToolInstaller
-}
-
-type installationState struct {
-	installed bool
-	version   string
 }
 
 func NewNmapScanner() *NmapScanner {
@@ -27,18 +22,17 @@ func NewNmapScanner() *NmapScanner {
 		Version:          "latest",
 		ExecutablePath:   "/usr/bin/nmap",
 		Base_Command:     "nmap -sV -T4",
-		LocalPath:        "",
 		InstallationType: client.InstallationTypeShell,
 	}
 
 	s := &NmapScanner{
 		config: config,
-		installState: installationState{
-			installed: false,
-			version:   "",
+		installState: scanners.InstallationState{
+			Installed: false,
+			Version:   "",
 		},
 	}
-	s.installState.installed = s.IsInstalled()
+	s.installState.Installed = s.IsInstalled()
 	return s
 }
 
@@ -64,8 +58,7 @@ func (s *NmapScanner) Setup() error {
 
 func (s *NmapScanner) IsInstalled() bool {
 
-	if !s.installState.installed {
-
+	if !s.installState.Installed {
 		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
 			s.registerInstallationStats()
 		} else if _, err := exec.LookPath("nmap"); err == nil {
@@ -73,7 +66,7 @@ func (s *NmapScanner) IsInstalled() bool {
 		}
 	}
 
-	return s.installState.installed
+	return s.installState.Installed
 }
 
 // GetConfig returns the scanner configuration
@@ -83,7 +76,7 @@ func (s *NmapScanner) GetConfig() scanners.ScannerConfig {
 
 // register marks the tool as installed and gets its version
 func (s *NmapScanner) registerInstallationStats() error {
-	s.installState.installed = true
+	s.installState.Installed = true
 
 	cmd := exec.Command("nmap", "--version")
 	output, err := cmd.CombinedOutput()
@@ -91,11 +84,11 @@ func (s *NmapScanner) registerInstallationStats() error {
 		lines := strings.Split(string(output), "\n")
 		if len(lines) > 0 {
 			versionInfo := strings.TrimSpace(lines[0])
-			s.installState.version = versionInfo
+			s.installState.Version = versionInfo
 		}
 	}
 
-	fmt.Printf("Nmap registered as installed, version: %s\n", s.installState.version)
+	fmt.Printf("Nmap registered as installed, version: %s\n", s.installState.Version)
 	return nil
 }
 
