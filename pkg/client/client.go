@@ -1,5 +1,5 @@
 package client
 
-type Client interface {
+type ToolInstaller interface {
 	InstallTool() error
 }

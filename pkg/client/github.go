@@ -19,10 +19,9 @@ type GithubClient struct {
 	destPath    string
 }
 
-func NewGithubClient(install_args []string, timeout time.Duration) *GithubClient {
+func NewGithubClient(install_args []string, timeout time.Duration) (*GithubClient, error) {
 	if len(install_args) != 3 {
-		fmt.Println("Usage: github <url> <version> <dest_path>")
-		return nil
+		return nil, fmt.Errorf("usage: github <url> <version> <dest_path>")
 	}
 	url := install_args[0]
 	version := install_args[1]
@@ -35,7 +34,7 @@ func NewGithubClient(install_args []string, timeout time.Duration) *GithubClient
 		version:     version,
 		destPath:    destPath,
 		httpClient:  httpClient,
-	}
+	}, nil
 }
 func (c *GithubClient) InstallTool() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)

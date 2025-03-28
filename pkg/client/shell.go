@@ -14,13 +14,16 @@ type ShellClient struct {
 	toolName string
 }
 
-func NewShellClient(install_args []string, timeout time.Duration) *ShellClient {
+func NewShellClient(install_args []string, timeout time.Duration) (*ShellClient, error) {
+	if len(install_args) < 1 {
 
+		return nil, fmt.Errorf("usage: shell <tool_name> [<args>]")
+	}
 	return &ShellClient{
 		toolName: install_args[0],
 		cmdArgs:  append([]string{"sudo", "apt", "install"}, install_args...),
 		timeout:  timeout * time.Minute,
-	}
+	}, nil
 }
 
 func (c *ShellClient) InstallTool() error {
