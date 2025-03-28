@@ -31,19 +31,20 @@ func NewNmapScanner() *NmapScanner {
 		InstallationType: client.InstallationTypeShell,
 	}
 
-	return &NmapScanner{
+	s := &NmapScanner{
 		config: config,
 		installState: installationState{
 			installed: false,
 			version:   "",
 		},
 	}
+	s.installState.installed = s.IsInstalled()
+	return s
 }
 
 func (s *NmapScanner) Setup() error {
 
 	if s.IsInstalled() {
-		fmt.Println("Nmap is already installed")
 		return nil
 	}
 
