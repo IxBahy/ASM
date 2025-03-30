@@ -26,6 +26,11 @@ func NewShellClient(install_args []string, timeout time.Duration) (*ShellClient,
 	}, nil
 }
 
+// InstallTool executes the commands specified in the ShellClient's cmdArgs to install
+// the tool identified by toolName. It splits the commands on "&&" and executes them
+// sequentially, displaying the output to stdout and stderr. The execution has a timeout
+// defined by the client's timeout field. It returns an error if any command fails to execute
+// or if the timeout is reached, otherwise it returns nil on successful installation.
 func (c *ShellClient) InstallTool() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
