@@ -75,22 +75,15 @@ func (s *WPScanScanner) Setup() error {
 	return s.RegisterInstallationStats()
 }
 
-// Scan performs a WPScan scan on the specified target
 func (s *WPScanScanner) Scan(target string) (scanners.ScannerResult, error) {
 	if !s.IsInstalled() {
 		return scanners.ScannerResult{}, fmt.Errorf("wpscan is not installed")
 	}
 
-	// Split the base command
 	cmdParts := strings.Fields(s.Config.Base_Command)
-
-	// Add the target
 	cmdParts = append(cmdParts, target)
-
-	// Add format as json for better parsing
 	cmdParts = append(cmdParts, "--format", "json")
 
-	// Execute the command
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	output, err := cmd.CombinedOutput()
 
@@ -109,7 +102,6 @@ func (s *WPScanScanner) Scan(target string) (scanners.ScannerResult, error) {
 		return result, err
 	}
 
-	// Process successful output
 	for _, line := range strings.Split(string(output), "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
 			result.Data = append(result.Data, trimmed)
