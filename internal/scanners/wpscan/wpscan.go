@@ -2,7 +2,6 @@ package wpscan
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -11,8 +10,7 @@ import (
 )
 
 type WPScanScanner struct {
-	config        scanners.ScannerConfig
-	installState  scanners.InstallationState
+	*scanners.BaseScanner
 	installClient client.ToolInstaller
 }
 
@@ -25,18 +23,20 @@ func NewWPScanScanner() *WPScanScanner {
 		InstallationType: client.InstallationTypeShell,
 	}
 
-	s := &WPScanScanner{
-		config: config,
-		installState: scanners.InstallationState{
+	base := &scanners.BaseScanner{
+		Config: config,
+		InstallState: scanners.InstallationState{
 			Installed: false,
 			Version:   "",
 		},
 	}
-	s.installState.Installed = s.IsInstalled()
+	s := &WPScanScanner{
+		BaseScanner: base,
+	}
+	s.InstallState.Installed = s.IsInstalled()
 	return s
 }
 
-// Setup ensures WPScan is installed
 func (s *WPScanScanner) Setup() error {
 	if s.IsInstalled() {
 		return nil
@@ -72,19 +72,7 @@ func (s *WPScanScanner) Setup() error {
 		return fmt.Errorf("failed to install wpscan with it dependencies: %w", err)
 	}
 
-	return s.registerInstallationStats()
-}
-
-func (s *WPScanScanner) IsInstalled() bool {
-	if !s.installState.Installed {
-		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
-			s.registerInstallationStats()
-		} else if _, err := exec.LookPath(s.config.Name); err == nil {
-			s.registerInstallationStats()
-		}
-	}
-
-	return s.installState.Installed
+	return s.RegisterInstallationStats()
 }
 
 // Scan performs a WPScan scan on the specified target
@@ -94,7 +82,7 @@ func (s *WPScanScanner) Scan(target string) (scanners.ScannerResult, error) {
 	}
 
 	// Split the base command
-	cmdParts := strings.Fields(s.config.Base_Command)
+	cmdParts := strings.Fields(s.Config.Base_Command)
 
 	// Add the target
 	cmdParts = append(cmdParts, target)
@@ -129,36 +117,4 @@ func (s *WPScanScanner) Scan(target string) (scanners.ScannerResult, error) {
 	}
 
 	return result, nil
-}
-
-// GetConfig returns the scanner configuration
-func (s *WPScanScanner) GetConfig() scanners.ScannerConfig {
-	return s.config
-}
-
-// register marks the tool as installed and gets its version
-func (s *WPScanScanner) registerInstallationStats() error {
-	s.installState.Installed = true
-
-	cmd := exec.Command(s.config.Name, "--version")
-	output, err := cmd.CombinedOutput()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "Version:") {
-				parts := strings.Split(line, ":")
-				if len(parts) > 1 {
-					s.installState.Version = strings.TrimSpace(parts[1])
-					break
-				}
-			}
-		}
-		// If version not found in output, use first line
-		if s.installState.Version == "" && len(lines) > 0 {
-			s.installState.Version = strings.TrimSpace(lines[0])
-		}
-	}
-
-	fmt.Printf("WPScan registered as installed, version: %s\n", s.installState.Version)
-	return nil
 }

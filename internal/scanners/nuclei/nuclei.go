@@ -2,7 +2,6 @@ package nuclei
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -11,12 +10,10 @@ import (
 )
 
 type NucleiScanner struct {
-	config        scanners.ScannerConfig
-	installState  scanners.InstallationState
+	*scanners.BaseScanner
 	installClient client.ToolInstaller
 }
 
-// NewNucleiScanner creates a new Nuclei scanner
 func NewNucleiScanner() *NucleiScanner {
 	config := scanners.ScannerConfig{
 		Name:    "nuclei",
@@ -29,32 +26,34 @@ func NewNucleiScanner() *NucleiScanner {
 		Base_Command:     "nuclei -t cves/ -u",
 		InstallationType: client.InstallationTypeGithub,
 	}
-	s := &NucleiScanner{
-		config: config,
-		installState: scanners.InstallationState{
+	base := &scanners.BaseScanner{
+		Config: config,
+		InstallState: scanners.InstallationState{
 			Installed: false,
 			Version:   "",
 		},
 	}
-	s.installState.Installed = s.IsInstalled()
+	s := &NucleiScanner{
+		BaseScanner: base,
+	}
+	s.InstallState.Installed = s.IsInstalled()
 	return s
 }
 
-// Setup ensures Nuclei is installed
 func (s *NucleiScanner) Setup() error {
 	if s.IsInstalled() {
 		return nil
 	}
 
 	installArgs := []string{
-		s.config.GithubOptions.InstallLink,
-		s.config.GithubOptions.InstallPattern,
-		s.config.Version,
-		s.config.ExecutablePath,
+		s.Config.GithubOptions.InstallLink,
+		s.Config.GithubOptions.InstallPattern,
+		s.Config.Version,
+		s.Config.ExecutablePath,
 	}
 
 	var err error
-	s.installClient, err = client.ClientFactory(s.config.InstallationType, installArgs, 5)
+	s.installClient, err = client.ClientFactory(s.Config.InstallationType, installArgs, 5)
 	if err != nil {
 		return fmt.Errorf("failed to create install client: %w", err)
 	}
@@ -63,19 +62,7 @@ func (s *NucleiScanner) Setup() error {
 		return fmt.Errorf("failed to install nuclei: %w", err)
 	}
 
-	return s.registerInstallationStats(s.config.Version)
-}
-
-func (s *NucleiScanner) IsInstalled() bool {
-	if !s.installState.Installed {
-		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
-			s.registerInstallationStats("")
-		} else if _, err := exec.LookPath(s.config.Name); err == nil {
-			s.registerInstallationStats("")
-		}
-	}
-
-	return s.installState.Installed
+	return s.RegisterInstallationStats()
 }
 
 func (s *NucleiScanner) Scan(target string) (scanners.ScannerResult, error) {
@@ -83,7 +70,7 @@ func (s *NucleiScanner) Scan(target string) (scanners.ScannerResult, error) {
 		return scanners.ScannerResult{}, fmt.Errorf("nuclei is not installed")
 	}
 
-	cmdParts := strings.Fields(s.config.Base_Command)
+	cmdParts := strings.Fields(s.Config.Base_Command)
 
 	cmdParts = append(cmdParts, target)
 
@@ -112,34 +99,4 @@ func (s *NucleiScanner) Scan(target string) (scanners.ScannerResult, error) {
 	}
 
 	return result, nil
-}
-
-func (s *NucleiScanner) GetConfig() scanners.ScannerConfig {
-	return s.config
-}
-
-func (s *NucleiScanner) registerInstallationStats(version string) error {
-	s.installState.Installed = true
-
-	if version != "" {
-		s.installState.Version = version
-	} else {
-		cmd := exec.Command(s.config.Name, "-version")
-		output, err := cmd.CombinedOutput()
-		if err == nil {
-			lines := strings.Split(string(output), "\n")
-			for _, line := range lines {
-				if strings.Contains(line, "Version:") {
-					parts := strings.Split(line, ":")
-					if len(parts) > 1 {
-						s.installState.Version = strings.TrimSpace(parts[1])
-						break
-					}
-				}
-			}
-		}
-	}
-
-	fmt.Printf("Nuclei registered as installed, version: %s\n", s.installState.Version)
-	return nil
 }

@@ -2,7 +2,6 @@ package nmap
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -11,8 +10,7 @@ import (
 )
 
 type NmapScanner struct {
-	config        scanners.ScannerConfig
-	installState  scanners.InstallationState
+	*scanners.BaseScanner
 	installClient client.ToolInstaller
 }
 
@@ -24,15 +22,17 @@ func NewNmapScanner() *NmapScanner {
 		Base_Command:     "nmap -sV -T4",
 		InstallationType: client.InstallationTypeShell,
 	}
-
-	s := &NmapScanner{
-		config: config,
-		installState: scanners.InstallationState{
+	base := &scanners.BaseScanner{
+		Config: config,
+		InstallState: scanners.InstallationState{
 			Installed: false,
 			Version:   "",
 		},
 	}
-	s.installState.Installed = s.IsInstalled()
+	s := &NmapScanner{
+		BaseScanner: base,
+	}
+	s.InstallState.Installed = s.IsInstalled()
 	return s
 }
 
@@ -44,7 +44,7 @@ func (s *NmapScanner) Setup() error {
 
 	installArgs := []string{"nmap", "-y"}
 	var err error
-	s.installClient, err = client.ClientFactory(s.config.InstallationType, installArgs, 5)
+	s.installClient, err = client.ClientFactory(s.Config.InstallationType, installArgs, 5)
 	if err != nil {
 		return fmt.Errorf("failed to create install client: %w", err)
 	}
@@ -53,43 +53,7 @@ func (s *NmapScanner) Setup() error {
 		return fmt.Errorf("failed to install nmap: %w", err)
 	}
 
-	return s.registerInstallationStats()
-}
-
-func (s *NmapScanner) IsInstalled() bool {
-
-	if !s.installState.Installed {
-		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
-			s.registerInstallationStats()
-		} else if _, err := exec.LookPath(s.config.Name); err == nil {
-			s.registerInstallationStats()
-		}
-	}
-
-	return s.installState.Installed
-}
-
-// GetConfig returns the scanner configuration
-func (s *NmapScanner) GetConfig() scanners.ScannerConfig {
-	return s.config
-}
-
-// register marks the tool as installed and gets its version
-func (s *NmapScanner) registerInstallationStats() error {
-	s.installState.Installed = true
-
-	cmd := exec.Command(s.config.Name, "--version")
-	output, err := cmd.CombinedOutput()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		if len(lines) > 0 {
-			versionInfo := strings.TrimSpace(lines[0])
-			s.installState.Version = versionInfo
-		}
-	}
-
-	fmt.Printf("Nmap registered as installed, version: %s\n", s.installState.Version)
-	return nil
+	return s.RegisterInstallationStats()
 }
 
 func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
@@ -97,13 +61,9 @@ func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
 		return scanners.ScannerResult{}, fmt.Errorf("nmap is not installed")
 	}
 
-	// Split the base command
-	cmdParts := strings.Fields(s.config.Base_Command)
-
-	// Add the target
+	cmdParts := strings.Fields(s.Config.Base_Command)
 	cmdParts = append(cmdParts, target)
 
-	// Execute the command
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	output, err := cmd.CombinedOutput()
 
@@ -114,7 +74,6 @@ func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
 
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("scan error: %v", err))
-		// Include output in errors even if there was an error
 		for _, line := range strings.Split(string(output), "\n") {
 			if trimmed := strings.TrimSpace(line); trimmed != "" {
 				result.Errors = append(result.Errors, trimmed)
@@ -123,7 +82,6 @@ func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
 		return result, err
 	}
 
-	// Process successful output
 	for _, line := range strings.Split(string(output), "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
 			result.Data = append(result.Data, trimmed)
