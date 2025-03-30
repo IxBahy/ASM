@@ -32,12 +32,34 @@ func (c *ShellClient) InstallTool() error {
 
 	fmt.Printf("Installing %s with command %s ...\n", c.toolName, c.cmdArgs)
 
-	cmd := exec.CommandContext(ctx, c.cmdArgs[0], c.cmdArgs[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var cmdCommands [][]string
+	currentCommand := []string{}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install %s: %w", c.toolName, err)
+	for _, arg := range c.cmdArgs {
+		if arg == "&&" {
+			if len(currentCommand) > 0 {
+				cmdCommands = append(cmdCommands, currentCommand)
+				currentCommand = []string{}
+			}
+		} else {
+			currentCommand = append(currentCommand, arg)
+		}
+	}
+
+	if len(currentCommand) > 0 {
+		cmdCommands = append(cmdCommands, currentCommand)
+	}
+
+	for _, cmdArgs := range cmdCommands {
+		if len(cmdArgs) > 0 {
+			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to execute command '%v': %w", cmdArgs, err)
+			}
+		}
 	}
 
 	fmt.Printf("%s installed successfully\n", c.toolName)
