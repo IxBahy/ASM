@@ -70,7 +70,7 @@ func (s *NucleiScanner) IsInstalled() bool {
 	if !s.installState.Installed {
 		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
 			s.registerInstallationStats("")
-		} else if _, err := exec.LookPath("nuclei"); err == nil {
+		} else if _, err := exec.LookPath(s.config.Name); err == nil {
 			s.registerInstallationStats("")
 		}
 	}
@@ -124,7 +124,7 @@ func (s *NucleiScanner) registerInstallationStats(version string) error {
 	if version != "" {
 		s.installState.Version = version
 	} else {
-		cmd := exec.Command("nuclei", "-version")
+		cmd := exec.Command(s.config.Name, "-version")
 		output, err := cmd.CombinedOutput()
 		if err == nil {
 			lines := strings.Split(string(output), "\n")

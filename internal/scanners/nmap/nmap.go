@@ -61,7 +61,7 @@ func (s *NmapScanner) IsInstalled() bool {
 	if !s.installState.Installed {
 		if _, err := os.Stat(s.config.ExecutablePath); err == nil {
 			s.registerInstallationStats()
-		} else if _, err := exec.LookPath("nmap"); err == nil {
+		} else if _, err := exec.LookPath(s.config.Name); err == nil {
 			s.registerInstallationStats()
 		}
 	}
@@ -78,7 +78,7 @@ func (s *NmapScanner) GetConfig() scanners.ScannerConfig {
 func (s *NmapScanner) registerInstallationStats() error {
 	s.installState.Installed = true
 
-	cmd := exec.Command("nmap", "--version")
+	cmd := exec.Command(s.config.Name, "--version")
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		lines := strings.Split(string(output), "\n")
