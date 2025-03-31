@@ -10,6 +10,7 @@ type InstallationType string
 const (
 	InstallationTypeGithub   InstallationType = "github"
 	InstallationTypeShell    InstallationType = "shell"
+	InstallationTypePython   InstallationType = "python"
 	InstallationTypeInternal InstallationType = "internal"
 )
 
@@ -29,6 +30,9 @@ func ClientFactory(installType InstallationType, install_args []string, timeout 
 		// For now, we return an error
 		client = nil
 		err = fmt.Errorf("internal installation type is not implemented yet")
+
+	case InstallationTypePython:
+		client, err = NewPythonClient(install_args, timeout)
 
 	default:
 		client = nil
