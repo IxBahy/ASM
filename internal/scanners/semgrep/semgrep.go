@@ -63,18 +63,7 @@ func (s *SemgrepScanner) Setup() error {
 	return s.RegisterInstallationStats()
 }
 
-func (s *SemgrepScanner) IsInstalled() bool {
-	if !s.InstallState.Installed {
-		if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
-			s.RegisterInstallationStats()
-		} else if _, err := exec.LookPath("semgrep"); err == nil {
-			s.Config.ExecutablePath, _ = exec.LookPath("semgrep")
-			s.RegisterInstallationStats()
-		}
-	}
 
-	return s.InstallState.Installed
-}
 
 func (s *SemgrepScanner) Scan(target string) (scanners.ScannerResult, error) {
 	if !s.IsInstalled() {

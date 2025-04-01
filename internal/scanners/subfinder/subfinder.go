@@ -3,7 +3,6 @@ package subfinder
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -76,18 +75,6 @@ func (s *SubfinderScanner) Setup() error {
 	}
 
 	return s.RegisterInstallationStats()
-}
-
-func (s *SubfinderScanner) IsInstalled() bool {
-	if !s.InstallState.Installed {
-		if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
-			s.RegisterInstallationStats()
-		} else if _, err := exec.LookPath("subfinder"); err == nil {
-			s.Config.ExecutablePath, _ = exec.LookPath("subfinder")
-			s.RegisterInstallationStats()
-		}
-	}
-	return s.InstallState.Installed
 }
 
 func (s *SubfinderScanner) Scan(domain string) (scanners.ScannerResult, error) {

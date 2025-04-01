@@ -2,7 +2,6 @@ package trufflehog
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -21,7 +20,7 @@ func NewTruffleHogScanner() *TruffleHogScanner {
 		Version:          "latest",
 		ExecutablePath:   "/usr/local/bin/trufflehog",
 		Base_Command:     "trufflehog",
-		InstallationType: client.InstallationTypeGithub, // Changed to GitHub installation
+		InstallationType: client.InstallationTypeGithub,
 		GithubOptions: scanners.GithubOptions{
 			InstallLink:    "https://api.github.com/repos/trufflesecurity/trufflehog/releases/latest",
 			InstallPattern: "trufflehog_.*_linux_amd64.tar.gz",
@@ -50,7 +49,6 @@ func (s *TruffleHogScanner) Setup() error {
 
 	fmt.Println("Installing TruffleHog from GitHub releases...")
 
-	// Setup GitHub client
 	installArgs := []string{
 		s.Config.GithubOptions.InstallLink,
 		s.Config.GithubOptions.InstallPattern,
@@ -68,25 +66,11 @@ func (s *TruffleHogScanner) Setup() error {
 		return fmt.Errorf("failed to install trufflehog: %w", err)
 	}
 
-	// Update path if needed
 	if path, err := exec.LookPath("trufflehog"); err == nil {
 		s.Config.ExecutablePath = path
 	}
 
 	return s.RegisterInstallationStats()
-}
-
-func (s *TruffleHogScanner) IsInstalled() bool {
-	if !s.InstallState.Installed {
-		if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
-			s.RegisterInstallationStats()
-		} else if _, err := exec.LookPath("trufflehog"); err == nil {
-			s.Config.ExecutablePath, _ = exec.LookPath("trufflehog")
-			s.RegisterInstallationStats()
-		}
-	}
-
-	return s.InstallState.Installed
 }
 
 func (s *TruffleHogScanner) Scan(target string) (scanners.ScannerResult, error) {
