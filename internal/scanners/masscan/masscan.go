@@ -55,7 +55,7 @@ func (s *MassScanScanner) Setup() error {
 		return nil
 	}
 
-	installArgs := []string{"masscan", "libpcap-dev"}
+	installArgs := []string{"masscan", "libpcap-dev", "-y"}
 
 	var err error
 	s.installClient, err = client.ClientFactory(client.InstallationTypeShell, installArgs, 5)
@@ -68,18 +68,6 @@ func (s *MassScanScanner) Setup() error {
 	}
 
 	return s.RegisterInstallationStats()
-}
-
-func (s *MassScanScanner) IsInstalled() bool {
-	if !s.InstallState.Installed {
-		if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
-			s.RegisterInstallationStats()
-		} else if _, err := exec.LookPath("masscan"); err == nil {
-			s.Config.ExecutablePath, _ = exec.LookPath("masscan")
-			s.RegisterInstallationStats()
-		}
-	}
-	return s.InstallState.Installed
 }
 
 func (s *MassScanScanner) Scan(target string) (scanners.ScannerResult, error) {
@@ -178,31 +166,6 @@ func (s *MassScanScanner) Scan(target string) (scanners.ScannerResult, error) {
 
 	result.Data = append(result.Data, string(resultJSON))
 	return result, nil
-}
-
-func (s *MassScanScanner) RegisterInstallationStats() error {
-	s.InstallState.Installed = true
-
-	cmd := exec.Command("masscan", "--version")
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		s.InstallState.Version = "unknown"
-	} else {
-		versionOutput := strings.TrimSpace(string(output))
-		if versionOutput != "" {
-
-			if idx := strings.Index(versionOutput, "\n"); idx > 0 {
-				versionOutput = versionOutput[:idx]
-			}
-			s.InstallState.Version = versionOutput
-		} else {
-			s.InstallState.Version = "installed"
-		}
-	}
-
-	fmt.Printf("Masscan registered as installed, version: %s\n", s.InstallState.Version)
-	return nil
 }
 
 func resolveTarget(target string) (string, error) {
