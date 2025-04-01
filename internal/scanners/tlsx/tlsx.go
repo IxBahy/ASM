@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/IxBahy/ASM/internal/scanners"
+	"github.com/IxBahy/ASM/pkg/utils/extractor"
 )
 
 type TLSXScanner struct {
@@ -71,7 +72,7 @@ func (s *TLSXScanner) Scan(target string) (scanners.ScannerResult, error) {
 		Errors: []string{},
 	}
 
-	host, port := parseTarget(target)
+	host, port := extractor.ExtractHostAndPort(target)
 	if port == "" {
 		port = "443"
 	}
@@ -136,23 +137,6 @@ func (s *TLSXScanner) Scan(target string) (scanners.ScannerResult, error) {
 	return result, nil
 }
 
-func parseTarget(target string) (host, port string) {
-	target = strings.TrimPrefix(target, "https://")
-	target = strings.TrimPrefix(target, "http://")
-
-	parts := strings.Split(target, ":")
-	host = parts[0]
-	if len(parts) > 1 {
-		port = parts[1]
-		// If port includes path, remove the path
-		if idx := strings.Index(port, "/"); idx != -1 {
-			port = port[:idx]
-		}
-	}
-
-	host = strings.Split(host, "/")[0]
-	return host, port
-}
 func getTLSVersionString(version uint16) string {
 	switch version {
 	case tls.VersionTLS10:
