@@ -115,38 +115,3 @@ func (s *SQLMapScanner) Scan(target string) (scanners.ScannerResult, error) {
 
 	return result, nil
 }
-
-func (s *SQLMapScanner) RegisterInstallationStats() error {
-	s.InstallState.Installed = true
-
-	var cmd *exec.Cmd
-
-	if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
-		cmd = exec.Command(s.Config.ExecutablePath, "--version")
-	} else {
-		sqlmapPath, err := exec.LookPath("sqlmap")
-		if err != nil {
-			s.InstallState.Version = "unknown"
-			return nil
-		}
-		cmd = exec.Command(sqlmapPath, "--version")
-		s.Config.ExecutablePath = sqlmapPath
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "Version") {
-				parts := strings.Fields(line)
-				if len(parts) > 0 {
-					s.InstallState.Version = parts[len(parts)-1]
-					break
-				}
-			}
-		}
-	}
-
-	fmt.Printf("SQLMap registered as installed, version: %s\n", s.InstallState.Version)
-	return nil
-}

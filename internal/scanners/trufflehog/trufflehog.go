@@ -116,24 +116,3 @@ func (s *TruffleHogScanner) Scan(target string) (scanners.ScannerResult, error) 
 
 	return result, nil
 }
-
-func (s *TruffleHogScanner) RegisterInstallationStats() error {
-	s.InstallState.Installed = true
-
-	cmd := exec.Command(s.Config.ExecutablePath, "--version")
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		s.InstallState.Version = "unknown"
-	} else {
-		versionOutput := strings.TrimSpace(string(output))
-		if versionOutput != "" {
-			s.InstallState.Version = versionOutput
-		} else {
-			s.InstallState.Version = "installed"
-		}
-	}
-
-	fmt.Printf("TruffleHog registered as installed, version: %s\n", s.InstallState.Version)
-	return nil
-}

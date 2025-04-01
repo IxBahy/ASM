@@ -2,8 +2,10 @@ package scanners
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/IxBahy/ASM/pkg/client"
@@ -64,25 +66,25 @@ func (s *BaseScanner) RegisterInstallationStats() error {
 
 	cmd := exec.Command(s.Config.Name, "--version")
 	output, err := cmd.CombinedOutput()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "Version:") {
-				parts := strings.Split(line, ":")
-				if len(parts) > 1 {
-					s.InstallState.Version = strings.TrimSpace(parts[1])
-					break
-				}
-			}
+	if err != nil {
+		log.Printf("Error executing command: %s\n", err)
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if regexp.MustCompile(`(?i)version`).MatchString(line) {
+			s.InstallState.Version = strings.TrimSpace(line)
+			break
 		}
-		if s.InstallState.Version == "" && len(lines) > 0 {
-			s.InstallState.Version = strings.TrimSpace(lines[0])
-		}
+	}
+	if s.InstallState.Version == "" && len(lines) > 0 && err == nil {
+		s.InstallState.Version = strings.TrimSpace(string(output))
 	}
 
 	fmt.Printf("WPScan registered as installed, version: %s\n", s.InstallState.Version)
 	return nil
 }
+
 func (s *BaseScanner) GetInstallationState() InstallationState {
 	return s.InstallState
 }
