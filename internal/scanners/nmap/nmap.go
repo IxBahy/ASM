@@ -1,7 +1,9 @@
 package nmap
 
 import (
+	"encoding/xml"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -89,4 +91,70 @@ func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
 	}
 
 	return result, nil
+}
+
+type NmapRun struct {
+	XMLName xml.Name `xml:"nmaprun"`
+	Hosts   []Host   `xml:"host"`
+}
+
+type Host struct {
+	Ports []Port `xml:"ports>port"`
+}
+
+type Port struct {
+	PortID   string  `xml:"portid,attr"`
+	Protocol string  `xml:"protocol,attr"`
+	State    State   `xml:"state"`
+	Service  Service `xml:"service"`
+}
+
+type State struct {
+	State string `xml:"state,attr"`
+}
+
+type Service struct {
+	Name    string `xml:"name,attr"`
+	Product string `xml:"product,attr,omitempty"`
+}
+
+func (s *NmapScanner) ScanTopPorts(target string, top_count int) ([]Port, error) {
+	cmdParts := strings.Fields(s.Config.Base_Command)
+	tempFileName := "scanTopPorts.xml"
+	cmdParts = append(cmdParts, "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
+	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to run nmap scan: %w", err)
+	}
+
+	openPorts, err := filterOpenPortsInFile(tempFileName)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Remove(tempFileName); err != nil {
+		fmt.Printf("Warning: Failed to remove temporary file %s: %v\n", tempFileName, err)
+	}
+	return openPorts, nil
+
+}
+
+func filterOpenPortsInFile(functionName string) ([]Port, error) {
+	var nmapRun NmapRun
+	xmlData, err := os.ReadFile(fmt.Sprintf("%s.xml", functionName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read XML file: %w", err)
+	}
+
+	xml.Unmarshal(xmlData, &nmapRun)
+
+	openPorts := []Port{}
+	for _, host := range nmapRun.Hosts {
+		for _, port := range host.Ports {
+			if port.State.State == "open" {
+				openPorts = append(openPorts, port)
+			}
+		}
+	}
+
+	return openPorts, nil
 }
