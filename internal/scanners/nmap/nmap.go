@@ -15,6 +15,32 @@ type NmapScanner struct {
 	*scanners.BaseScanner
 	installClient client.ToolInstaller
 }
+type NmapRun struct {
+	XMLName xml.Name `xml:"nmaprun"`
+	Hosts   []Host   `xml:"host"`
+}
+
+type Host struct {
+	Ports []Port `xml:"ports>port"`
+}
+
+type Port struct {
+	PortID       string  `xml:"portid,attr"`
+	Protocol     string  `xml:"protocol,attr"`
+	StateDetails State   `xml:"state"`
+	Service      Service `xml:"service"`
+}
+
+type State struct {
+	Value     string `xml:"state,attr"`
+	Reason    string `xml:"reason,attr"`
+	ReasonTTL string `xml:"reason_ttl,attr"`
+}
+
+type Service struct {
+	Name    string `xml:"name,attr"`
+	Product string `xml:"product,attr,omitempty"`
+}
 
 func NewNmapScanner() *NmapScanner {
 	config := scanners.ScannerConfig{
@@ -58,70 +84,38 @@ func (s *NmapScanner) Setup() error {
 	return s.RegisterInstallationStats()
 }
 
-func (s *NmapScanner) Scan(target string) (scanners.ScannerResult, error) {
+func (s *NmapScanner) Scan(target string) ([]Port, error) {
 	if !s.IsInstalled() {
-		return scanners.ScannerResult{}, fmt.Errorf("nmap is not installed")
+		return nil, fmt.Errorf("nmap is not installed")
 	}
-
-	cmdParts := strings.Fields(s.Config.Base_Command)
-	cmdParts = append(cmdParts, target)
-
-	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-	output, err := cmd.CombinedOutput()
-
-	result := scanners.ScannerResult{
-		Data:   []string{},
-		Errors: []string{},
-	}
+	openPorts, err := s.scanPorts(target, 20)
 
 	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("scan error: %v", err))
-		for _, line := range strings.Split(string(output), "\n") {
-			if trimmed := strings.TrimSpace(line); trimmed != "" {
-				result.Errors = append(result.Errors, trimmed)
-			}
-		}
-		return result, err
+		return nil, fmt.Errorf("failed to scan target: %w", err)
 	}
 
-	for _, line := range strings.Split(string(output), "\n") {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			result.Data = append(result.Data, trimmed)
-		}
+	return openPorts, nil
+}
+func (s *NmapScanner) scanPorts(target string, topCount int) ([]Port, error) {
+
+	tcpPorts, err := s.scanTCPTopPorts(target, topCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan TCP ports: %w", err)
 	}
 
-	return result, nil
+	udpPorts, err := s.scanUDPTopPorts(target, topCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan UDP ports: %w", err)
+	}
+
+	ports := append(tcpPorts, udpPorts...)
+	return ports, nil
 }
 
-type NmapRun struct {
-	XMLName xml.Name `xml:"nmaprun"`
-	Hosts   []Host   `xml:"host"`
-}
-
-type Host struct {
-	Ports []Port `xml:"ports>port"`
-}
-
-type Port struct {
-	PortID   string  `xml:"portid,attr"`
-	Protocol string  `xml:"protocol,attr"`
-	State    State   `xml:"state"`
-	Service  Service `xml:"service"`
-}
-
-type State struct {
-	State string `xml:"state,attr"`
-}
-
-type Service struct {
-	Name    string `xml:"name,attr"`
-	Product string `xml:"product,attr,omitempty"`
-}
-
-func (s *NmapScanner) ScanTopPorts(target string, top_count int) ([]Port, error) {
+func (s *NmapScanner) scanTCPTopPorts(target string, top_count int) ([]Port, error) {
 	cmdParts := strings.Fields(s.Config.Base_Command)
-	tempFileName := "scanTopPorts.xml"
-	cmdParts = append(cmdParts, "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
+	tempFileName := "scanTCPTopPorts.xml"
+	cmdParts = append(cmdParts, "-sT", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("failed to run nmap scan: %w", err)
@@ -138,9 +132,29 @@ func (s *NmapScanner) ScanTopPorts(target string, top_count int) ([]Port, error)
 
 }
 
+func (s *NmapScanner) scanUDPTopPorts(target string, top_count int) ([]Port, error) {
+	cmdParts := strings.Fields(s.Config.Base_Command)
+	tempFileName := "scanUDPTopPorts.xml"
+	cmdParts = append(cmdParts, "-sU", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
+
+	cmd := exec.Command("sudo", cmdParts...)
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to run nmap scan: %w", err)
+	}
+
+	openPorts, err := filterOpenPortsInFile(tempFileName)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Remove(tempFileName); err != nil {
+		fmt.Printf("Warning: Failed to remove temporary file %s: %v\n", tempFileName, err)
+	}
+	return openPorts, nil
+}
+
 func filterOpenPortsInFile(functionName string) ([]Port, error) {
 	var nmapRun NmapRun
-	xmlData, err := os.ReadFile(fmt.Sprintf("%s.xml", functionName))
+	xmlData, err := os.ReadFile(functionName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read XML file: %w", err)
 	}
@@ -150,7 +164,7 @@ func filterOpenPortsInFile(functionName string) ([]Port, error) {
 	openPorts := []Port{}
 	for _, host := range nmapRun.Hosts {
 		for _, port := range host.Ports {
-			if port.State.State == "open" {
+			if port.StateDetails.Value == "open" {
 				openPorts = append(openPorts, port)
 			}
 		}

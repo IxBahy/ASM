@@ -15,13 +15,13 @@ func main() {
 	registry.Register(nmapScanner)
 
 	if nmapScanner.IsInstalled() {
-		result, err := nmapScanner.Scan("localhost")
+		result, err := nmapScanner.Scan("buguard.io")
 		if err != nil {
 			log.Printf("Scan error: %v", err)
 		}
 
 		fmt.Println("Scan results:")
-		for _, line := range result.Data {
+		for _, line := range result {
 			fmt.Println(line)
 		}
 	}

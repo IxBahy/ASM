@@ -14,7 +14,6 @@ import (
 
 type Scanner interface {
 	interfaces.Installable
-	Scan(target string) (ScannerResult, error)
 	GetConfig() ScannerConfig
 	GetInstallationState() InstallationState
 	IsInstalled() bool
@@ -47,6 +46,9 @@ type BaseScanner struct {
 	InstallState InstallationState
 }
 
+func (s *BaseScanner) Scan(target string) (ScannerResult, error) {
+	return ScannerResult{}, fmt.Errorf("Scan method not implemented for %s", s.Config.Name)
+}
 func (s *BaseScanner) IsInstalled() bool {
 	if !s.InstallState.Installed {
 		if _, err := os.Stat(s.Config.ExecutablePath); err == nil {
