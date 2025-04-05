@@ -11,43 +11,12 @@ import (
 	"github.com/IxBahy/ASM/pkg/client"
 )
 
-type NmapScanner struct {
-	*scanners.BaseScanner
-	installClient client.ToolInstaller
-}
-type NmapRun struct {
-	XMLName xml.Name `xml:"nmaprun"`
-	Hosts   []Host   `xml:"host"`
-}
-
-type Host struct {
-	Ports []Port `xml:"ports>port"`
-}
-
-type Port struct {
-	PortID       string  `xml:"portid,attr"`
-	Protocol     string  `xml:"protocol,attr"`
-	StateDetails State   `xml:"state"`
-	Service      Service `xml:"service"`
-}
-
-type State struct {
-	Value     string `xml:"state,attr"`
-	Reason    string `xml:"reason,attr"`
-	ReasonTTL string `xml:"reason_ttl,attr"`
-}
-
-type Service struct {
-	Name    string `xml:"name,attr"`
-	Product string `xml:"product,attr,omitempty"`
-}
-
 func NewNmapScanner() *NmapScanner {
 	config := scanners.ScannerConfig{
 		Name:             "nmap",
 		Version:          "latest",
 		ExecutablePath:   "/usr/bin/nmap",
-		Base_Command:     "nmap -sV -T4",
+		Base_Command:     "nmap -T4",
 		InstallationType: client.InstallationTypeShell,
 	}
 	base := &scanners.BaseScanner{
@@ -115,7 +84,7 @@ func (s *NmapScanner) scanPorts(target string, topCount int) ([]Port, error) {
 func (s *NmapScanner) scanTCPTopPorts(target string, top_count int) ([]Port, error) {
 	cmdParts := strings.Fields(s.Config.Base_Command)
 	tempFileName := "scanTCPTopPorts.xml"
-	cmdParts = append(cmdParts, "-sT", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
+	cmdParts = append(cmdParts, "-sT", "-sV", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("failed to run nmap scan: %w", err)
@@ -135,7 +104,7 @@ func (s *NmapScanner) scanTCPTopPorts(target string, top_count int) ([]Port, err
 func (s *NmapScanner) scanUDPTopPorts(target string, top_count int) ([]Port, error) {
 	cmdParts := strings.Fields(s.Config.Base_Command)
 	tempFileName := "scanUDPTopPorts.xml"
-	cmdParts = append(cmdParts, "-sU", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
+	cmdParts = append(cmdParts, "-sV", "-sU", "--top-ports", fmt.Sprintf("%d", top_count), target, "-oX", tempFileName)
 
 	cmd := exec.Command("sudo", cmdParts...)
 	if err := cmd.Run(); err != nil {
